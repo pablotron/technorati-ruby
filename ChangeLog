@@ -4,3 +4,5 @@
   * added ChangeLog
   * added technorati.gemspec
   * technorati.rb: documentation cleanup (finished adding keys)
+  * README: added intro, isntall, requirements
+  * TODO: marked one item off
