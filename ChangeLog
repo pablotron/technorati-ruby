@@ -15,3 +15,7 @@
   * technorati.gemspec: more verbose requirements
   * technorati.gemspec: added examples/referrer_rss.rb to RDoc list
   * MANIFEST: updated
+
+* Wed Sep 29 10:12:25 2004, pabs <pabs@pablotron.org>
+  * technorati.gemspec: fix one little gotcha
+  * releasing 0.1.0
