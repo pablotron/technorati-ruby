@@ -38,8 +38,6 @@ require 'parsedate'
 require 'net/http'
 require 'rexml/document'
 
-$debug = File::open('results.xml', 'w')
-
 class String
   #
   # Escape XML-special characters in string.
@@ -193,7 +191,7 @@ class Technorati
     http = Net::HTTP.new('api.technorati.com', 80)
     http.start
 
-    puts "URL: #{url}"
+    # $stderr.puts "DEBUG URL: #{url}"
 
     # get URL, check for error
     resp = http.get(url, @headers);
@@ -212,8 +210,6 @@ class Technorati
   #
   def get(schema, url)
     content = http_get(url)
-    $debug.puts content
-    $debug.flush
     doc = REXML::Document.new(content)
 
     # if there was an error, raise an exception
