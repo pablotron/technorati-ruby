@@ -3,5 +3,6 @@
 ./TODO
 ./COPYING
 ./technorati.rb
-./rubilicious.gemspec
+./examples/referrer_rss.rb
 ./MANIFEST
+./technorati.gemspec

@@ -14,6 +14,8 @@ spec = Gem::Specification.new do |s|
   EOF
 
   s.requirements << 'Ruby, version 1.8.0 (or newer)'
+  s.requirements << 'REXML (included with Ruby 1.8.x)'
+  s.requirements << 'ParseDate (included with Ruby 1.8.x)'
 
   #### Which files are to be included in this gem?  Everything!  (Except CVS directories.)
 
@@ -30,7 +32,7 @@ spec = Gem::Specification.new do |s|
   s.rdoc_options = ['--webcvs',
   'http://cvs.pablotron.org/cgi-bin/viewcvs.cgi/technorati/', '--title',
   'Technorati-Ruby API Documentation', 'technorati.rb', 'README', 'ChangeLog',
-  'COPYING']
+  'COPYING', 'examples/referrer_rss.rb']
 
   #### Author and project details.
 
