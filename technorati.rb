@@ -279,21 +279,22 @@ class Technorati
   # Returns a hash containing information about the query URL and a 
   # list of blogs.
   #
-  # = Valid Return Keys
-  # * weblog/name: Name of blog.
-  # * weblog/url:  URL of blog.
-  # * weblog/rssurl: RSS syndication URL of blog.
-  # * weblog/atomurl: Atom syndication URL of blog.
-  # * weblog/inboundblogs: Number of inbound blogs.
-  # * weblog/inboundlinks: Number of inbound links.
-  # * weblog/lastupdate: Date of last update.
-  # * nearestpermalink: Nearest permanent link.
-  # * exerpt: Exerpt from page matching search result.
-  # * linkcreated: Date link was created.
-  # * linkurl: Link URL.
-  # * weblog/rank: Cosmos Rank.
+  # Valid Return Keys:
+  # * 'weblog/name': Name of blog.
+  # * 'weblog/url':  URL of blog.
+  # * 'weblog/rssurl': RSS syndication URL of blog.
+  # * 'weblog/atomurl': Atom syndication URL of blog.
+  # * 'weblog/inboundblogs': Number of inbound blogs.
+  # * 'weblog/inboundlinks': Number of inbound links.
+  # * 'weblog/lastupdate': Date of last update.
+  # * 'nearestpermalink': Nearest permanent link.
+  # * 'exerpt': Exerpt from page matching search result.
+  # * 'linkcreated': Date link was created.
+  # * 'linkurl': Link URL.
+  # * 'weblog/rank': Cosmos Rank.
   # * rankingstart:
-  # * url: URL.
+  # * 'url': URL.
+  # * 'items': an array of hashes containing blogs
   #
   # Raises an exception on error.
   #
@@ -311,7 +312,7 @@ class Technorati
   #
   # Returns the results of a Technorati[http://technorati.com/] SearchQuery[http://developers.technorati.com/wiki/SearchQuery].  A 
   # Technorati[http://technorati.com/] SearchQuery[http://developers.technorati.com/wiki/SearchQuery] lets you see what blogs contain a given search string.
-  #
+  # 
   # Arguments: 
   # * +words+ (required): an Array of words or a whitespace-separated String
   # * +start+: Set this to a number larger than 0 and you'll get the
@@ -320,6 +321,26 @@ class Technorati
   #
   # Returns a hash containing information about the query and a 
   # list of blogs.
+  #
+  # Valid Return Keys:
+  # * 'query': Query string.  
+  # * 'querycount': Number of matches.
+  # * 'inboundblogs': Number of inbound blogs.
+  # * 'querytime': Duration of query (in seconds).
+  # * 'rankingstart': Value of start parameter.
+  # * 'weblog/name': Name of blog containing match.
+  # * 'weblog/url': URL of blog containing match.
+  # * 'weblog/rssurl': RSS URL of blog containing match.
+  # * 'weblog/atomurl': Atom URL of blog containing match.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing
+  #   match.
+  # * 'weblog/inboundlinks': Number of inbound links of blog containing
+  #   match.
+  # * 'weblog/lastupdate': Date blog was last updated
+  # * 'title': Title of matching entry.
+  # * 'exerpt': Exerpt of matching entry with relevant text.
+  # * 'created': Date matching entry was created.
+  # * 'items': Array of hashes containing matching entries.
   #
   # Raises an exception on error.
   #
@@ -357,6 +378,27 @@ class Technorati
   # Returns a hash containing information about the user and a 
   # list of blogs associated with that user.
   #
+  # Valid Return Keys:
+  # * 'username': User name of user.
+  # * 'firstname': First name of user.
+  # * 'lastname': Last name of user.
+  # * 'thumbnailpicture': URL to thumbnail picture.
+  # * 'weblog/name': Name of blog containing match.
+  # * 'weblog/url: URL of blog containing match.
+  # * 'weblog/rssurl': RSS URL of blog containing match.
+  # * 'weblog/atomurl': Atom URL of blog containing match.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing
+  #   match.
+  # * 'weblog/inboundlinks': Number of inbound links of blog containing
+  #   match.
+  # * 'weblog/lastupdate': Date blog was last updated.
+  # * 'rank': Cosmos ranking.
+  # * 'lang': Blog language as integer.
+  # * 'lat': Geographical information.
+  # * 'lon': Geographical information.
+  # * 'foafurl': FOAF[http://foaf.org/] URL.
+  # * 'items': an Array of Hashes with each matched user's blog.
+  #
   # Raises an exception on error.
   #
   # Example:
@@ -377,6 +419,22 @@ class Technorati
   #
   # Returns a hash containing information about the query URL and a 
   # list of blogs.
+  #
+  # Valid Return Keys:
+  # * 'url': Blog URL.
+  # * 'weblog/name': Name of blog.
+  # * 'weblog/url: URL of blog.
+  # * 'weblog/rssurl': RSS URL of blog.
+  # * 'weblog/atomurl': Atom URL of blog.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog.
+  # * 'weblog/inboundlinks': Number of inbound links of blog.
+  # * 'weblog/lastupdate': Date blog was last updated.
+  # * 'weblog/rank': Blog cosmos rank.
+  # * 'inboundblogs': Inbound blogs.
+  # * 'inboundlinks': Inbound links. 
+  # * 'rankingstart': Start parameter value.
+  # * 'items': an Array of Hashes containing blogs linking to the given
+  #   blog.
   #
   # Raises an exception on error.
   #
@@ -401,6 +459,19 @@ class Technorati
   # * +url+ (required): URL to search for.
   #
   # Returns a hash containing information about the query URL.
+  #
+  # Valid Return Keys:
+  # * 'url': Blog URL.
+  # * 'weblog/name': Name of blog.
+  # * 'weblog/url: URL of blog.
+  # * 'weblog/rssurl': RSS URL of blog.
+  # * 'weblog/atomurl': Atom URL of blog.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog.
+  # * 'weblog/inboundlinks': Number of inbound links of blog.
+  # * 'weblog/lastupdate': Date blog was last updated.
+  # * 'weblog/rank': Blog cosmos rank.
+  # * 'inboundblogs': Inbound blogs.
+  # * 'inboundlinks': Inbound links. 
   #
   # Raises an exception on error.
   #
