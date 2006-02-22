@@ -61,7 +61,7 @@ class String
 end
 
 class Technorati
-  VERSION = '0.1.0'
+  VERSION = '0.1.1'
 
   TYPE_PROCS = {
     :str  => proc { |str| str },

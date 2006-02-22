@@ -5,7 +5,7 @@ spec = Gem::Specification.new do |s|
   #### Basic information.
 
   s.name = 'Technorati-Ruby'
-  s.version = '0.1.0'
+  s.version = '0.1.1'
   s.summary = <<-EOF
     Technorati(http://technorati.com/) bindings for Ruby.
   EOF
