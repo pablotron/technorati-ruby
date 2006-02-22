@@ -481,6 +481,7 @@ class Technorati
     args = ["key=#@key", "url=#{url.uri_escape}"]
     ret = get('bloginfo', '/bloginfo?' << args.compact.join('&'))
     ret.delete('items')
+    ret
   end
 
 end
