@@ -27,3 +27,22 @@
   * technorati.rb: update version to 0.1.1
   * technorati.gemspec: ditto
   * README: ditto
+
+* Tue Dec  5 03:18:24 EST 2006, Paul Duncan <pabs@pablotron.org>
+  * technorati.rb: update copyright
+  * technorati.rb: remove string monkey patches
+  * technorati.rb: use CGI.escape instead of custom method
+  * technorati.rb: update version to 0.2.0
+  * technorati.rb: wrap exceptions in Technorati::Error exception
+  * technorati.rb: fix wording (exerpt => excerpt, based on patch from
+    Cooper Bethea)
+  * technorati.rb: clean up documentation for Technorati.new
+  * technorati.rb: add optional options hash as parameter to
+    Technorati.new
+  * technorati.rb: add proxy support (Technorati#find_http_proxy; ripped
+    straight from Rubilicious)
+  * technorati.rb: add support for HTTP proxies (checks for
+    opt['proxy_url'], then either the windows registry or the following
+    environment variables: TECHNORATI_HTTP_PROXY, HTTP_PROXY, http_proxy
+  * technorati.rb: added tweakable API url (via opt['api_url']).
+    defaults to api.technorati.com

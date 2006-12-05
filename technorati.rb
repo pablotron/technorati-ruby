@@ -5,7 +5,7 @@
 # Technorati-Ruby page at 
 # http://pablotron.org/software/technorati-ruby/.
 #
-# Copyright (C) 2004 Paul Duncan.
+# Copyright (C) 2004-2006 Paul Duncan.
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -37,36 +37,23 @@
 require 'parsedate'
 require 'net/http'
 require 'rexml/document'
-
-class String
-  #
-  # Escape XML-special characters in string.
-  #
-  def xml_escape
-    str = gsub(/&/, '&amp;')
-    str = str.gsub(/</, '&lt;')
-    str = str.gsub(/>/, '&gt;')
-    str = str.gsub(/"/, '&quot;')
-    str
-  end
-
-  #
-  # XML escape elements, including spaces, ?, and +
-  #
-  def uri_escape
-    str = xml_escape.gsub(/\+/, '&43;')
-    str = str.gsub(/\s/, '+')
-    str = str.gsub(/\?/, '&63;')
-  end
-end
+require 'cgi'
 
 class Technorati
-  VERSION = '0.1.1'
+  VERSION = '0.2.0'
+
+  #
+  # Technorati-specific error.
+  #
+  class Error < StandardError; end
+  class URLError < Error; end
+  class HTTPError < Error; end
+  class APIError < Error; end
 
   TYPE_PROCS = {
     :str  => proc { |str| str },
     :int  => proc { |str| str.to_i },
-    :time => proc { |str| Time::mktime(*ParseDate::parsedate(str)) },
+    :time => proc { |str| Time.mktime(*ParseDate.parsedate(str)) },
     :flt  => proc { |str| str.to_f },
   }
 
@@ -80,7 +67,7 @@ class Technorati
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
       'nearestpermalink'    => :str,
-      'exerpt'              => :str,
+      'excerpt'             => :str,
       'linkcreated'         => :time,
       'linkurl'             => :str,
 
@@ -105,7 +92,7 @@ class Technorati
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
       'title'               => :str,
-      'exerpt'              => :str,
+      'excerpt'             => :str,
       'created'             => :time,
     },
 
@@ -159,6 +146,10 @@ class Technorati
     },
   }
 
+  DEFAULTS = {
+    'api_url' => 'http://api.technorati.com/',
+  }
+
   #
   # Connect to Technorati with key +key+
   #
@@ -167,15 +158,110 @@ class Technorati
   # http://technorati.com/developers/.
   #
   # Example: 
-  #   # read key from $HOME/.technorati_key and use it to connect
-  #   key = IO::readlines(File::join(ENV['HOME'], '.technorati_key')).join.strip
+  #   # read key from $HOME/.technorati_key
+  #   key_path = File.expand_path('~/.technorati_key')
+  #   key = File.read(key_path).strip
+  #
+  #   # use key to connect to technorati
   #   t = Technorati.new(key)
   #
-  def initialize(key)
+  def initialize(key, opt = nil)
+    @opt = DEFAULTS.merge(opt || {})
     @key = key
+
     @headers = {
       'User-Agent'  => "Technorati-Ruby/#{Technorati::VERSION} Ruby/#{RUBY_VERSION}"
     }
+  end
+
+  private
+
+  # 
+  # URI-escape a string.  This method is private.
+  # 
+  def u(str)
+    CGI.escape(str)
+  end
+
+  # list of environment variables to check for HTTP proxy
+  PROXY_ENV_VARS = %w{TECHNORATI_HTTP_PROXY HTTP_PROXY http_proxy}
+
+  #
+  # Parse and verify a URL string.
+  #
+  def parse_url(url_str, name = 'URL')
+    begin 
+      uri = URI.parse(url_str)
+    rescue Exception => e
+      raise URLError, "couldn't parse #{name}: #{e}"
+    end
+
+    # check URI scheme
+    unless uri.scheme == 'http'
+      raise URLError, "Unknown #{name} scheme: #{uri.scheme}"
+    end
+
+    # return URI
+    uri
+  end
+
+  #
+  # get the HTTP proxy server and port from the environment
+  # Returns [nil, nil] if a proxy is not set
+  #
+  # This method is private
+  #
+  def find_http_proxy
+    ret = [nil, nil]
+
+    # check the platform.  If we're running in windows then we need to 
+    # check the registry
+    if @opt['use_proxy'] || @opt['proxy_url']
+      if @opt['proxy_url']
+        uri = parse_url(@opt['proxy_url'])
+        ret = [uri.host, uri.port]
+      elsif RUBY_PLATFORM =~ /win32/i
+        # Find a proxy in Windows by checking the registry.
+        # this code shamelessly copied from Raggle :D
+
+        require 'win32/registry'
+
+        Win32::Registry::open(
+          Win32::Registry::HKEY_CURRENT_USER,
+          'Software\Microsoft\Windows\CurrentVersion\Internet Settings'
+        ) do |reg|
+          # check and see if proxy is enabled
+          if reg.read('ProxyEnable')[1] != 0
+            # get server, port, and no_proxy (overrides)
+            server = reg.read('ProxyServer')[1]
+            np = reg.read('ProxyOverride')[1]
+
+            server =~ /^([^:]+):(.+)$/
+            ret = [$1, $2]
+
+            # don't bother with no_proxy support
+            # ret['no_proxy'] = np.gsub(/;/, ',') if np && np.length > 0
+          end
+        end
+      else
+        # handle UNIX systems
+        PROXY_ENV_VARS.each do |env_var|
+          if ENV[env_var]
+            # if we found a proxy, then parse it
+            ret = ENV[env_var].sub(/^http:\/\/([^\/]+)\/?$/, '\1').split(':')
+            ret[1] = ret[1].to_i if ret[1]
+            break
+          end
+        end
+        # $stderr.puts "DEBUG: http_proxy = #{ENV['http_proxy']}, ret = [#{ret.join(',')}]"
+      end
+    else 
+      # proxy is disabled
+      ret = [nil, nil]
+    end
+
+    # return host and port
+    ret
   end
 
   #
@@ -187,15 +273,21 @@ class Technorati
     # set HTTP version to 1.2
     Net::HTTP::version_1_2
 
+    urls = %w{api proxy}.inject({}) do |ret, key|
+      uri = parse_url(@opt["#{key}_url"])
+      [:host, :port].each { |m| ret["#{key}_#{m}"] = uri.send(m) }
+      ret
+    end
+
     # connect to technorati
-    http = Net::HTTP.new('api.technorati.com', 80)
+    http = Net::HTTP.Proxy(urls['proxy_host'], urls['proxy_port']).new(urls['api_host'], urls['api_port'])
     http.start
 
     # $stderr.puts "DEBUG URL: #{url}"
 
     # get URL, check for error
     resp = http.get(url, @headers);
-    raise "HTTP #{resp.code}: #{resp.message}" unless resp.code =~ /2\d{2}/
+    raise Technorati::HTTPError, "HTTP #{resp.code}: #{resp.message}" unless resp.code =~ /2\d{2}/
 
     # close HTTP connection, return response
     http.finish
@@ -214,7 +306,7 @@ class Technorati
 
     # if there was an error, raise an exception
     doc.root.elements.each('//error') do |e|
-      raise "Technorati Error: #{e.text}"
+      raise APIError, "Technorati Error: #{e.text}"
     end
 
     # grab toplevel result info
@@ -246,8 +338,7 @@ class Technorati
     ret
   end
 
-  # don't touch these :)
-  private :get, :http_get
+  public
 
   # 
   # Returns the results of a Technorati[http://technorati.com/]
@@ -284,7 +375,7 @@ class Technorati
   # * 'weblog/inboundlinks': Number of inbound links.
   # * 'weblog/lastupdate': Date of last update.
   # * 'nearestpermalink': Nearest permanent link.
-  # * 'exerpt': Exerpt from page matching search result.
+  # * 'excerpt': Excerpt from page matching search result.
   # * 'linkcreated': Date link was created.
   # * 'linkurl': Link URL.
   # * 'weblog/rank': Cosmos Rank.
@@ -292,7 +383,7 @@ class Technorati
   # * 'url': URL.
   # * 'items': an array of hashes containing blogs
   #
-  # Raises an exception on error.
+  # Raises Technorati::Error on error.
   #
   # Example:
   #   # print out a list of the first 35 sites linking to slashdot.org
@@ -301,7 +392,7 @@ class Technorati
   #   end
   #
   def cosmos(url, limit = nil, type = nil, start = nil, current = nil)
-    args = ["key=#@key", "url=#{url.uri_escape}", (type ? "type=#{type}" : nil), (limit ? "limit=#{limit}" : nil), (start ? "start=#{start}" : nil), (current ? "current=#{current}" : nil)]
+    args = ["key=#@key", "url=#{u(url)}", (type ? "type=#{type}" : nil), (limit ? "limit=#{limit}" : nil), (start ? "start=#{start}" : nil), (current ? "current=#{current}" : nil)]
     get('cosmos', '/cosmos?' << args.compact.join('&'))
   end
 
@@ -334,11 +425,11 @@ class Technorati
   #   match.
   # * 'weblog/lastupdate': Date blog was last updated
   # * 'title': Title of matching entry.
-  # * 'exerpt': Exerpt of matching entry with relevant text.
+  # * 'excerpt': Excerpt of matching entry with relevant text.
   # * 'created': Date matching entry was created.
   # * 'items': Array of hashes containing matching entries.
   #
-  # Raises an exception on error.
+  # Raises Technorati::Error on error.
   #
   # Example:
   #   # print out a list of the first 20 entries that match the
@@ -347,13 +438,13 @@ class Technorati
   #     ["Blog: #{item['weblog/url']}", 
   #      "Entry Title: #{item['title']}",
   #      "Entry Date: #{item['created']}",
-  #      "Entry Exerpt: #{item['exerpt']}",
+  #      "Entry excerpt: #{item['excerpt']}",
   #      '']
   #   end.flatten
   #
   def search(words, start = nil)
     words = [words] unless words.is_a? Array
-    args = ["key=#@key", "query=#{words.join(' ').uri_escape}", (start ? "start=#{start}" : nil)]
+    args = ["key=#@key", "query=#{u(words.join(' ')}", (start ? "start=#{start}" : nil)]
     get('search', '/search?' << args.compact.join('&'))
   end
 
@@ -395,14 +486,14 @@ class Technorati
   # * 'foafurl': FOAF[http://foaf.org/] URL.
   # * 'items': an Array of Hashes with each matched user's blog.
   #
-  # Raises an exception on error.
+  # Raises Technorati::Error on error.
   #
   # Example:
   #   # print out a list of blog URLs associated with 'giblet'
   #   puts t.info('giblet')['items'] map { |blog| blog['weblog/url'] }
   #
   def info(user)
-    args = ["key=#@key", "username=#{user.uri_escape}"]
+    args = ["key=#@key", "username=#{u(user)}"]
     get('getinfo', '/getinfo?' << args.compact.join('&'))
   end
 
@@ -432,14 +523,14 @@ class Technorati
   # * 'items': an Array of Hashes containing blogs linking to the given
   #   blog.
   #
-  # Raises an exception on error.
+  # Raises Technorati::Error on error.
   #
   # Example:
   #   # print out a list of blogs linking to 'engadget.com'
   #   puts t.outbound('engadget.com')['items'].map { |blog| blog['weblog/name'] } 
   #
   def outbound(url, start = nil)
-    args = ["key=#@key", "url=#{url.uri_escape}", (start ? "start=#{start}" : nil)]
+    args = ["key=#@key", "url=#{u(url)}", (start ? "start=#{start}" : nil)]
     get('outbound', '/outbound?' << args.compact.join('&'))
   end
 
@@ -469,19 +560,18 @@ class Technorati
   # * 'inboundblogs': Inbound blogs.
   # * 'inboundlinks': Inbound links. 
   #
-  # Raises an exception on error.
+  # Raises Technorati::Error on error.
   #
   # Example:
   #   # print out the Name, URL, and RSS URL for atrios.blogspot.com
   #   result = t.bloginfo('atrios.blogspot.com')
   #   blog_keys = { 'Name' => 'name', 'URL' =>'url', 'RSS' => 'rssurl' }
-  #   puts blog_keys.map { |ary| "#{ary[0]}: #{result['weblog/' + ary[1]]}" }
+  #   puts blog_keys.map { |ary| "#{ary[0]}: #{result["weblog/#{ary[1]}"]}" }
   #   
   def bloginfo(url, start = nil)
-    args = ["key=#@key", "url=#{url.uri_escape}"]
+    args = ["key=#@key", "url=#{u(url)}"]
     ret = get('bloginfo', '/bloginfo?' << args.compact.join('&'))
     ret.delete('items')
     ret
   end
-
 end
