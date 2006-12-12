@@ -1,11 +1,10 @@
-# Technorati-Ruby - Technorati[http://technorati.com/] bindings for Ruby[http://ruby-lang.org/].
-# by Paul Duncan <mailto:pabs@pablotron.org>
+# {Technorati-Ruby}[http://pablotron.org/software/technorati-ruby/] - Technorati[http://technorati.com/] bindings for Ruby[http://ruby-lang.org/].
+# by {Paul Duncan <pabs@pablotron.org>}[mailto:pabs@pablotron.org]
 #
-# For the latest version of this software, Please see the 
-# Technorati-Ruby page at 
-# http://pablotron.org/software/technorati-ruby/.
+# For the latest version of this software, Please visit the 
+# {Technorati-Ruby page}[http://pablotron.org/software/technorati-ruby/].
 #
-# Copyright (C) 2004-2006 Paul Duncan.
+# Copyright (C) 2004-2006 {Paul Duncan}[http://pablotron.org/].
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation
@@ -39,16 +38,66 @@ require 'net/http'
 require 'rexml/document'
 require 'cgi'
 
+#
+# Ruby interface for the {Technorati API}[http://technorati.com/developers/].
+#
+# Note: In order to use this library you'll need an API key from the {Technorati developers page}[http://technorati.com/developers/].
+#
+# Using this class is straighforward; you create a new instance of this
+# class with your API key, then query Technorati[http://technorati.com/]
+# with the URL you want to learn about, like so:
+#
+#   # read API key from ~/.technorati_key
+#   api_key_path = File.expand_path('~/.technorati_key')
+#   api_key = File.read(api_key_path).strip
+#
+#   # create a new Technorati instance
+#   tr = Technorati.new(api_key)
+#
+#   # fetch information about links to my page
+#   cosmos = tr.cosmos('http://pablotron.org/')
+# 
+#   # print out the name and URL of the first link
+#   puts %w{name link}.map { |key|
+#     val = cosmos['items'][0][key]
+#     "#{key}: #{val}"
+#   }
+# 
+# Each of the query methods allows you to (optionally) refine your
+# search by passing an hash of additional parameters as the second
+# parameter.  For example, to limit the cosmos query above to 10 results
+# of type 'weblog', you would write it like this:
+#
+#   # define cosmos query options
+#   cosmos_opts = {
+#     'limit' => 10,        # limit to 10 results
+#     'type'  => 'weblog',  # results of type 'weblog'
+#   }
+#
+#   # fetch information about links to my page
+#   cosmos = tr.cosmos('http://pablotron.org/', cosmos_opts)
+#   
+# See the documentation for each method for additional information on
+# the available options.
+#   
 class Technorati
+  # Release version.
   VERSION = '0.2.0'
 
-  #
   # Technorati-specific error.
-  #
   class Error < StandardError; end
+
+  # URL parsing error.
   class URLError < Error; end
+
+  # HTTP connection error.
   class HTTPError < Error; end
+
+  # An error returned from the \Technorati API.
   class APIError < Error; end
+
+
+  # :stopdoc:
 
   TYPE_PROCS = {
     :str  => proc { |str| str },
@@ -66,13 +115,19 @@ class Technorati
       'weblog/inboundblogs' => :int,
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
+      'weblog/rank'         => :int,
       'nearestpermalink'    => :str,
       'excerpt'             => :str,
       'linkcreated'         => :time,
       'linkurl'             => :str,
 
+      # author info (only set if claim=1)
+      'weblog/author/username'          => :str,
+      'weblog/author/firstname'         => :str,
+      'weblog/author/lastname'          => :str,
+      'weblog/author/thumbnailpicture'  => :str,
+
       # these are all <result>-specific
-      'weblog/rank'         => :int,
       'rankingstart'        => :int,
       'url'                 => :str,
     },
@@ -91,9 +146,17 @@ class Technorati
       'weblog/inboundblogs' => :int,
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
+
       'title'               => :str,
       'excerpt'             => :str,
       'created'             => :time,
+      'permalink'           => :str,
+
+      # author info (only set if claim=1)
+      'weblog/author/username'          => :str,
+      'weblog/author/firstname'         => :str,
+      'weblog/author/lastname'          => :str,
+      'weblog/author/thumbnailpicture'  => :str,
     },
 
     'getinfo' => {
@@ -109,6 +172,7 @@ class Technorati
       'weblog/inboundblogs' => :int,
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
+
       'rank'                => :int,
       'lang'                => :str,
       'lat'                 => :str,
@@ -116,8 +180,14 @@ class Technorati
       'foafurl'             => :str,
     },
 
-    'outbound'  => {
-      'url'                 => :str,
+    'tag'  => {
+      'query'               => :str,
+      'postsmatched'        => :int,
+      'blogssmatched'       => :int,
+      'start'               => :int,
+      'limit'               => :int,
+      'querytime'           => :flt,
+
       'weblog/name'         => :str,
       'weblog/url'          => :str,
       'weblog/rssurl'       => :str,
@@ -125,10 +195,29 @@ class Technorati
       'weblog/inboundblogs' => :int,
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
-      'weblog/rank'         => :int,
-      'inboundblogs'        => :int,
-      'inboundlinks'        => :int,
-      'rankingstart'        => :int,
+
+      'title'               => :str,
+      'excerpt'             => :str,
+      'created'             => :time,
+      'permalink'           => :str,
+      'postupdate'          => :time,
+    },
+
+    'toptags' => {
+      'limit'               => :int,
+
+      'tag'                 => :str,
+      'posts'               => :int,
+    },
+
+    'keyinfo' => {
+      'apiqueries'          => :int,
+      'maxqueries'          => :int,
+    },
+
+    'blogposttags' => {
+      'tag'                 => :str,
+      'posts'               => :int,
     },
 
     'bloginfo'  => {
@@ -141,29 +230,33 @@ class Technorati
       'weblog/inboundlinks' => :int,
       'weblog/lastupdate'   => :time,
       'weblog/rank'         => :int,
+      'weblog/lang'         => :str,
+      'weblog/foafurl'      => :str,
       'inboundblogs'        => :int,
       'inboundlinks'        => :int,
     },
   }
 
+  # :startdoc:
+
+  # Default options for Technorati.new.
   DEFAULTS = {
     'api_url' => 'http://api.technorati.com/',
   }
 
   #
-  # Connect to Technorati with key +key+
+  # Connect to Technorati with key _key_
   #
-  # Note: if the key is invalid, Technorati-Ruby will not raise an
-  # exception until you make an actual call.  You can get a key from
-  # http://technorati.com/developers/.
+  # Note: Will not raise an # exception until you make an actual call.  You can
+  # get a key from the {Technorati developers page}[http://technorati.com/developers/].
   #
   # Example: 
   #   # read key from $HOME/.technorati_key
-  #   key_path = File.expand_path('~/.technorati_key')
-  #   key = File.read(key_path).strip
+  #   api_key_path = File.expand_path('~/.technorati_key')
+  #   api_key = File.read(key_path).strip
   #
   #   # use key to connect to technorati
-  #   t = Technorati.new(key)
+  #   t = Technorati.new(api_key)
   #
   def initialize(key, opt = nil)
     @opt = DEFAULTS.merge(opt || {})
@@ -183,7 +276,7 @@ class Technorati
     CGI.escape(str)
   end
 
-  # list of environment variables to check for HTTP proxy
+  # Environment variables to check for HTTP proxy
   PROXY_ENV_VARS = %w{TECHNORATI_HTTP_PROXY HTTP_PROXY http_proxy}
 
   #
@@ -193,7 +286,7 @@ class Technorati
     begin 
       uri = URI.parse(url_str)
     rescue Exception => e
-      raise URLError, "couldn't parse #{name}: #{e}"
+      raise URLError, "couldn't parse #{name} '#{url_str}': #{e}"
     end
 
     # check URI scheme
@@ -217,8 +310,8 @@ class Technorati
     # check the platform.  If we're running in windows then we need to 
     # check the registry
     if @opt['use_proxy'] || @opt['proxy_url']
-      if @opt['proxy_url']
-        uri = parse_url(@opt['proxy_url'])
+      if @opt['proxy_url'] && @opt['proxy_url'].size > 0
+        uri = parse_url(@opt['proxy_url'], 'proxy URL')
         ret = [uri.host, uri.port]
       elsif RUBY_PLATFORM =~ /win32/i
         # Find a proxy in Windows by checking the registry.
@@ -274,8 +367,11 @@ class Technorati
     Net::HTTP::version_1_2
 
     urls = %w{api proxy}.inject({}) do |ret, key|
-      uri = parse_url(@opt["#{key}_url"])
-      [:host, :port].each { |m| ret["#{key}_#{m}"] = uri.send(m) }
+      if url_val = @opt["#{key}_url"] 
+        uri = parse_url(url_val, "#{key} URL")
+        [:host, :port].each { |m| ret["#{key}_#{m}"] = uri.send(m) }
+      end
+
       ret
     end
 
@@ -286,7 +382,7 @@ class Technorati
     # $stderr.puts "DEBUG URL: #{url}"
 
     # get URL, check for error
-    resp = http.get(url, @headers);
+    resp = http.get(url, @headers)
     raise Technorati::HTTPError, "HTTP #{resp.code}: #{resp.message}" unless resp.code =~ /2\d{2}/
 
     # close HTTP connection, return response
@@ -300,18 +396,24 @@ class Technorati
   #
   # This method is private.
   #
-  def get(schema, url)
+  def get(schema, args = {}, method = nil)
+  
+    # convert arguments
+    method ||= schema
+    url = ("/#{method}?" << map_args(args))
+
     content = http_get(url)
     doc = REXML::Document.new(content)
+    schema_keys = QUERY_SCHEMAS[schema].keys
 
     # if there was an error, raise an exception
     doc.root.elements.each('//error') do |e|
-      raise APIError, "Technorati Error: #{e.text}"
+      raise APIError, "#{e.text}"
     end
 
     # grab toplevel result info
-    result_elem = doc.root.elements['//result']
-    ret = QUERY_SCHEMAS[schema].keys.inject({}) do |elem_vals, key|
+    result_elem = doc.root.elements['//document/result']
+    ret = schema_keys.inject({}) do |elem_vals, key|
       if val = result_elem.elements[key]
         # out_key = key.gsub(/\//, '_')
         out_val = TYPE_PROCS[QUERY_SCHEMAS[schema][key]].call(val.text)
@@ -322,9 +424,9 @@ class Technorati
 
     # grab each result item and toss it in the return array
     ret['items'] = []
-    doc.root.elements.each('//item') do |e|
+    doc.root.elements.each('//document/item') do |e|
       # elements to grab from return XML
-      ret['items'] << QUERY_SCHEMAS[schema].keys.inject({}) do |elem_vals, key| 
+      ret['items'] << schema_keys.inject({}) do |elem_vals, key| 
         if val = e.elements[key]
           # out_key = key.gsub(/\//, '_')
           out_val = TYPE_PROCS[QUERY_SCHEMAS[schema][key]].call(val.text)
@@ -338,30 +440,109 @@ class Technorati
     ret
   end
 
+  #
+  # Convert an arguments hash to a URL fragment
+  #
+  # This method is private.
+  #
+  def map_args(args) 
+    args.merge({'key' => @key}).map { |ary|
+      key, val = ary
+
+      if val && %w{claim highlight}.include?(key)
+        val = '1' 
+      elsif key == 'current'
+        val = val ? 'yes' : 'no'
+      end
+        
+      "#{key}=#{u(val)}"
+    }.join('&')
+  end
+
+  #
+  # Convert a legacy cosmos call into a hash of options.
+  #
+  # This method is private.
+  #
+  def legacy_cosmos(args)
+    warn "WARNING: Calling Technorati#cosmos this way is deprecated."
+    warn "WARNING: Please update your code."
+
+    keys = [
+      ['limit',   :int],
+      ['type',    :str],
+      ['start',   :int],
+      ['current', :bool],
+    ]
+
+    # map legacy cosmos call values to hash
+    keys.zip(args).inject({}) do |ret, row|
+      key, key_type, val = row.flatten
+
+      if val.defined?
+        case key_type
+        when :int
+          ret[key] = val.to_i
+        when :str
+          ret[key] = val
+        when :bool
+          ret[key] = (val.match(/^yes$/i) && true)
+        else
+          raise Error, "unknown key type #{key_type}"
+        end
+      end
+
+      ret
+    end
+  end
+
+  #
+  # Convert a legacy search call into a hash of options.
+  #
+  # This method is private.
+  #
+  def legacy_search(args)
+    warn "WARNING: Calling Technorati#search this way is deprecated."
+    warn "WARNING: Please update your code."
+
+    { 'start' => args } 
+  end
+
   public
 
   # 
-  # Returns the results of a Technorati[http://technorati.com/]
-  # CosmosQuery[http://developers.technorati.com/wiki/CosmosQuery].  A
-  # Technorati[http://technorati.com/]
-  # CosmosQuery[http://developers.technorati.com/wiki/CosmosQuery]
-  # lets you see what blogs are linking to a given URL.
+  # Get a list of sites linking to the given URL.  See 
+  # http://technorati.com/developers/api/cosmos.html for additional
+  # information.
   #
-  # Arguments:
-  # * +url+ (required): URL you are searching for. The 'http://' prefix is
+  # Note: This method has changed since 0.1.x. It takes a hash of
+  # optional arguments as the second parameter.  Calling it with the old
+  # 0.1-style parameters will work, but is deprecated, will print a
+  # warning, and may stop working in a future release.
+  #
+  # Required Parameters:
+  # * _url_: URL you are searching for. The 'http://' prefix is
   #   optional.
-  # * +limit+: Set this to a number larger than 0 and smaller or equal to
-  #   100 and it will return +limit+ number of links for a query. By
+  # 
+  # Any additional arguments are optional and may be passed as a hash.
+  # Here's a description of each optional argument:
+  #
+  # Optional Arguments:
+  # * _limit_: Set this to a number larger than 0 and smaller or equal to
+  #   100 and it will return _limit_ number of links for a query. By
   #   default this value is 20.
-  # * +type+: Set this to 'link' and you'll get the freshest links to your
+  # * _type_: Set this to 'link' and you'll get the freshest links to your
   #   target URL. Set it to 'weblog' and you'll get a reverse blogroll -
   #   the last set of blogs that linked to the target URL.
-  # * +start+: Set this to a number larger than 0 and you'll get the
-  #   +start+ + +limit+ freshest items (links or blogs), e.g. set it to
-  #   +limit+ + 1, and you'll get the second page of rankings.
-  # * +current+: By default, cosmos returns the links that are currently
-  #   on the source's index page. If you set current to no, you will have
-  #   all links to the given URL.
+  # * _start_: Set this to a number larger than 0 and you'll get the
+  #   _start_ + _limit_ freshest items (links or blogs), e.g. set it to
+  #   _limit_ + 1, and you'll get the second page of rankings.
+  # * _current_: By default, cosmos returns the links that are currently
+  #   on the source's index page. If you set _current_ to false, you
+  #   will have all links to the given URL.
+  # * _claim_: Set to true to include Technorati member data in the
+  #   result set when a blog has been successfully claimed.  Defaults to
+  #   false.
   #
   # Returns a hash containing information about the query URL and a 
   # list of blogs.
@@ -385,26 +566,74 @@ class Technorati
   #
   # Raises Technorati::Error on error.
   #
-  # Example:
-  #   # print out a list of the first 35 sites linking to slashdot.org
-  #   puts t.cosmos('slashdot.org', 35)['items'].map do |item|
-  #     item['weblog/name']
-  #   end
+  # Examples:
+  # 
+  # Here's a basic cosmos query:
   #
-  def cosmos(url, limit = nil, type = nil, start = nil, current = nil)
-    args = ["key=#@key", "url=#{u(url)}", (type ? "type=#{type}" : nil), (limit ? "limit=#{limit}" : nil), (start ? "start=#{start}" : nil), (current ? "current=#{current}" : nil)]
-    get('cosmos', '/cosmos?' << args.compact.join('&'))
+  #   # basic cosmos query
+  #   site = 'slashdot.org'
+  #   puts tr.cosmos(site)['items'].map { |item| item['weblog/name'] }
+  #  
+  # And here's the same query with some options:
+  #  
+  #   # set query options
+  #   site = 'slashdot.org'
+  #   cosmos_opts = { 'limit' => 35 }
+  #
+  #   # run technorati cosmos query
+  #   cosmos = tr.cosmos(site, cosmos_opts)
+  #
+  #   # print out a list of the first 35 sites linking to slashdot.org
+  #   puts cosmos['items'].map { |item| item['weblog/name'] }
+  #
+  def cosmos(url, *args)
+    args = (args.size > 0 && args[0].kind_of?(Hash)) ? legacy_cosmos(args) : {}
+    args.update('url' => url)
+
+    # execute query and return results
+    get('cosmos', args)
   end
 
   #
-  # Returns the results of a Technorati[http://technorati.com/] SearchQuery[http://developers.technorati.com/wiki/SearchQuery].  A 
-  # Technorati[http://technorati.com/] SearchQuery[http://developers.technorati.com/wiki/SearchQuery] lets you see what blogs contain a given search string.
+  # Get a list of sites containing the given search string. See 
+  # http://technorati.com/developers/api/search.html for additional
+  # information.
+  #
+  # Note: This method has changed since 0.1.x. It takes a hash of
+  # optional arguments as the second parameter.  Calling it with the old
+  # 0.1-style parameters will work, but is deprecated, will print a
+  # warning, and may stop working in a future release.
+  #
+  # Required Parameters: 
+  # * _words_: an Array of words or a whitespace-delimited String
   # 
-  # Arguments: 
-  # * +words+ (required): an Array of words or a whitespace-separated String
-  # * +start+: Set this to a number larger than 0 and you'll get the
-  #   +start+ + 20 freshest items (links or blogs), e.g. set it to 20+1,
-  #   and you'll get the second page of rankings 21-40.
+  # Any additional arguments are optional and may be passed as a hash.
+  # Here's a description of each optional argument:
+  #
+  # Optional Arguments:
+  # * _start_: Set this to a number larger than 0 and you'll get the
+  #   _start_ + 20 freshest items (links or blogs), e.g. set it to 21,
+  #   and you'll get the second page of rankings (21 through 40).
+  # * _claim_: Set to true to include Technorati member data in the
+  #   result set when a blog has been successfully claimed.  Defaults to
+  #   false.
+  # * _limit_: Set this to a number larger than 0 and smaller or equal to
+  #   100 and it will return _limit_ number of links for a query. By
+  #   default this value is 20.
+  # * _language_: Set this to an {ISO 639-1}[http://www.loc.gov/standards/iso639-2/englangn.html] 
+  #   language code to retrieve results specific to that language.
+  #   According to the {Technorati API documetation}[http://technorati.com/developers/api/search.html],
+  #   this feature is beta and may not work correctly.
+  # * _authority_: Set this to filter results to those from blogs with
+  #   at least the Technorati Authority specified. Technorati calculates a
+  #   blog's authority by how many people link to it. Filtering by
+  #   authority is a good way to refine your search results. There are
+  #   four settings: 
+  #
+  #   * n:  Any authority: All results (default if unspecified).
+  #   * a1: A little authority: Results from blogs with at least one link.
+  #   * a4: Some authority: Results from blogs with a handful of links.
+  #   * a7: A lot of authority: Results from blogs with hundreds of links.
   #
   # Returns a hash containing information about the query and a 
   # list of blogs.
@@ -419,10 +648,8 @@ class Technorati
   # * 'weblog/url': URL of blog containing match.
   # * 'weblog/rssurl': RSS URL of blog containing match.
   # * 'weblog/atomurl': Atom URL of blog containing match.
-  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing
-  #   match.
-  # * 'weblog/inboundlinks': Number of inbound links of blog containing
-  #   match.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing match.
+  # * 'weblog/inboundlinks': Number of inbound links of blog containing match.
   # * 'weblog/lastupdate': Date blog was last updated
   # * 'title': Title of matching entry.
   # * 'excerpt': Excerpt of matching entry with relevant text.
@@ -431,25 +658,159 @@ class Technorati
   #
   # Raises Technorati::Error on error.
   #
-  # Example:
-  #   # print out a list of the first 20 entries that match the
-  #   # phrase 'cooking'
-  #   puts t.search('cooking')['items'] do |item|
-  #     ["Blog: #{item['weblog/url']}", 
-  #      "Entry Title: #{item['title']}",
-  #      "Entry Date: #{item['created']}",
-  #      "Entry excerpt: #{item['excerpt']}",
-  #      '']
-  #   end.flatten
+  # Examples:
+  #   # basic search query
+  #   tr.search('cooking')['items'].map { |item| item['weblog/url'] }
   #
-  def search(words, start = nil)
-    words = [words] unless words.is_a? Array
-    args = ["key=#@key", "query=#{u(words.join(' ')}", (start ? "start=#{start}" : nil)]
-    get('search', '/search?' << args.compact.join('&'))
+  # Here's a more advanced search query:
+  #
+  #   # search query with options
+  #   words = 'indian cooking'
+  #   opts = { 
+  #     'limit'     => 5,     # limit to first 5 results
+  #     'authority' => 'a4',  # require a handful of links
+  #   }
+  #
+  #   # execute query
+  #   results = tr.search(words, opts)
+  #
+  #   # print results 
+  #   puts results['items'].map { |item|
+  #     { 'weblog/url' => 'Blog',
+  #       'title'      => 'Title',
+  #       'created'    => 'Date',
+  #       'excerpt'    => 'Excerpt',
+  #     }.map { |row| "#{row[1]}: #{item[row[0]]}" }
+  #   }.flatten
+  #
+  def search(words, args = {})
+    words = [words] unless words.kind_of?(Array)
+
+    # if this is an old-style call, then convert it.
+    legacy_classes = [String. Numeric]
+    args = legacy_search(args) if args && legacy_classes.any? { |c| args.kind_of?(c) }
+    args.update('query' => words)
+
+    # execute a search query and return the results
+    get('search', args)
+  end
+
+
+  #
+  # Get a list of posts with the given tag. See 
+  # http://technorati.com/developers/api/tag.html for additional
+  # information.
+  #
+  # Required Parameters: 
+  # * _tag_: a String, such as 'blues' or 'xylophone'
+  # 
+  # Any additional arguments are optional and may be passed as a hash.
+  # Here's a description of each optional argument:
+  #
+  # Optional Arguments:
+  # * _start_: Set this to a number larger than 0 and you'll get the
+  #   _start_ + 20 freshest posts, e.g. set it to 21, and you'll get the
+  #   second page of posts (21 through 40).
+  # * _limit_: Set this to a number larger than 0 and smaller or equal to
+  #   100 and it will return _limit_ number of links for a query. By
+  #   default this value is 20.
+  # * _excerptsize_: Number of word characters to include in post
+  #   excerpts.  Defaults to 100.
+  # * _topexcerptsize_: Number of word characters to include in the
+  #   first post excerpt.  Defaults to 150.
+  #
+  # Returns a hash containing information about the query URL and a 
+  # list of blogs.
+  #
+  # Valid Return Keys:
+  # * 'weblog/name': Name of blog.
+  # * 'weblog/url':  URL of blog.
+  # * 'weblog/rssurl': RSS syndication URL of blog.
+  # * 'weblog/atomurl': Atom syndication URL of blog.
+  # * 'weblog/inboundblogs': Number of inbound blogs.
+  # * 'weblog/inboundlinks': Number of inbound links.
+  # * 'weblog/lastupdate': Date of last update.
+  # * 'excerpt': Excerpt from page matching search result.
+  # * 'title': Title of matching post.
+  # * 'excerpt': Excerpt of matching entry with relevant text.
+  # * 'created': Date matching entry was created.
+  # * 'permalink': Permanent link to this post.
+  # * 'created': Date matching entry was last updated.
+  # * 'items': an array of hashes containing matching posts
+  #
+  # Raises Technorati::Error on error.
+  #
+  # Examples:
+  #   # search for posts matching 'banana' and print them out
+  #   puts r.tag('banana')['items'].map { |post|
+  #     "\"#{post['title']\" (#{post['permalink']}):\n=> #{post['excerpt']}"
+  #   }
+  #
+  def tag(tag, args = {})
+    args.update('tag' => tag)
+    get('tag', args)
   end
 
   #
-  # Returns the results of a Technorati[http:/technorati.com/] GetInfoQuery[http://developers.technorati.com/wiki/GetInfoQuery].  A Technorati[http:/technorati.com/] GetInfoQuery[http://developers.technorati.com/wiki/GetInfoQuery] tells you things that Technorati knows about a user.
+  # Get the top tags used on Technorati.  See
+  # http://technorati.com/developers/api/toptags.html for additional
+  # information.
+  #
+  # There are no required parameters for this method, however you may
+  # pass a hash of optional arguments.  Here's a description of each
+  # optional argument:
+  #
+  # Optional Arguments:
+  # * _start_: Set this to a number larger than 0 and you'll get the
+  #   _start_ + 20 highest-rated tags, e.g. set it to 21, and you'll get the
+  #   second page of tags (21 through 40).
+  # * _limit_: Set this to a number larger than 0 and smaller or equal to
+  #   100 and it will return _limit_ number of tags. By default this
+  #   value is 20.
+  #
+  # Valid Return Keys:
+  # * 'limit': value of 'limit' parameter.
+  # * 'items': Array of hashes containing matching tags.
+  # * 'tag': Tag value.
+  # * 'posts': Number of posts matching given tag.
+  #
+  # Example:
+  #   # print out the top 20 tags on technorati
+  #   puts tr.top_tags['items'].map { |tag| 
+  #     "#{tag['tag']} (#{tag['posts']})"
+  #   }
+  # 
+  def top_tags(args = {})
+    get('toptags', args)
+  end
+
+  #
+  # Get information about your key usage.  Note that calls to this
+  # method do not count towards your limit.  See
+  # http://technorati.com/developers/api/keyinfo.html for additional
+  # information.
+  #
+  # Valid Return Keys:
+  # * 'apiqueries': Number of queries today.
+  # * 'maxqueries': Maximum number of allowed queries.
+  #
+  # Example:
+  #   # print out the top 20 tags on technorati
+  #   puts tr.top_tags['items'].map { |tag| 
+  #     "#{tag['tag']} (#{tag['posts']})"
+  #   }
+  # 
+  def key_info
+    ret = get('keyinfo', args)
+    ret.delete('items')
+    ret
+  end
+
+  #
+  # Get information that Technorati knows about a user.  See 
+  # http://technorati.com/developers/api/getinfo.html for additional
+  # information.
+  #
   # In the simplest case you can use Technorati#info to find out information
   # that a blogger wants to make known about himself, along with some
   # information that Technorati has calculated and verified about that
@@ -459,8 +820,8 @@ class Technorati
   # listing of the weblogs that the user has successfully claimed and
   # the information that Technorati knows about these weblogs.
   #
-  # Arguments:
-  # *  +user+ (required): Username
+  # Parameters:
+  # *  _user_ (required): Username
   #
   # Returns a hash containing information about the user and a 
   # list of blogs associated with that user.
@@ -474,10 +835,8 @@ class Technorati
   # * 'weblog/url: URL of blog containing match.
   # * 'weblog/rssurl': RSS URL of blog containing match.
   # * 'weblog/atomurl': Atom URL of blog containing match.
-  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing
-  #   match.
-  # * 'weblog/inboundlinks': Number of inbound links of blog containing
-  #   match.
+  # * 'weblog/inboundblogs': Number of inbound blogs of blog containing match.
+  # * 'weblog/inboundlinks': Number of inbound links of blog containing match.
   # * 'weblog/lastupdate': Date blog was last updated.
   # * 'rank': Cosmos ranking.
   # * 'lang': Blog language as integer.
@@ -493,57 +852,24 @@ class Technorati
   #   puts t.info('giblet')['items'] map { |blog| blog['weblog/url'] }
   #
   def info(user)
-    args = ["key=#@key", "username=#{u(user)}"]
-    get('getinfo', '/getinfo?' << args.compact.join('&'))
+    args = { 'username' => user }
+    get('getinfo', args)
   end
 
   #
-  # Returns the results of a Technorati[http:/technorati.com/] OutboundQuery[http://developers.technorati.com/wiki/OutboundQuery].  A Technorati[http:/technorati.com/] OutboundQuery[http://developers.technorati.com/wiki/OutboundQuery] query</a> lets you see what blogs are linked to on a given
-  # blog, including their associated info.
+  # Return information about the blog associated with a given URL.  See
+  # http://technorati.com/developers/api/bloginfo.html for additional
+  # information.
+  # 
+  # Note: This method has changed since 0.1.x. Version 0.1.0 had a
+  # method named Technorati#bloginfo that accepted an optional second
+  # parameter which was silently ignored.  The current version has been
+  # renamed Technorati#blog_info , and does not accept a second
+  # parameter.
   #
-  # Arguments:
-  # * +url+ (required): URL to search for.
-  #
-  # Returns a hash containing information about the query URL and a 
-  # list of blogs.
-  #
-  # Valid Return Keys:
-  # * 'url': Blog URL.
-  # * 'weblog/name': Name of blog.
-  # * 'weblog/url: URL of blog.
-  # * 'weblog/rssurl': RSS URL of blog.
-  # * 'weblog/atomurl': Atom URL of blog.
-  # * 'weblog/inboundblogs': Number of inbound blogs of blog.
-  # * 'weblog/inboundlinks': Number of inbound links of blog.
-  # * 'weblog/lastupdate': Date blog was last updated.
-  # * 'weblog/rank': Blog cosmos rank.
-  # * 'inboundblogs': Inbound blogs.
-  # * 'inboundlinks': Inbound links. 
-  # * 'rankingstart': Start parameter value.
-  # * 'items': an Array of Hashes containing blogs linking to the given
-  #   blog.
-  #
-  # Raises Technorati::Error on error.
-  #
-  # Example:
-  #   # print out a list of blogs linking to 'engadget.com'
-  #   puts t.outbound('engadget.com')['items'].map { |blog| blog['weblog/name'] } 
-  #
-  def outbound(url, start = nil)
-    args = ["key=#@key", "url=#{u(url)}", (start ? "start=#{start}" : nil)]
-    get('outbound', '/outbound?' << args.compact.join('&'))
-  end
-
-  #
-  # Returns the results of a Technorati[http:/technorati.com/] BlogInfoQuery[http://developers.technorati.com/wiki/BlogInfoQuery].  A  Technorati[http:/technorati.com/] BlogInfoQuery[http://developers.technorati.com/wiki/BlogInfoQuery]
-  # provides info on what blog, if any, is associated
-  # with a given URL. It also returns additional info such as cosmos
-  # stats, RSS feed Give it any URL and it'll tell you what blog, if
-  # any, that URL came from, and all the info it has on that blog, like
-  # cosmos stats and RSS feed.
-  #
-  # Arguments:
-  # * +url+ (required): URL to search for.
+  # Parameters:
+  # * _url_ (required): URL to search for ('http://' and 'www' prefix
+  #   are optional).
   #
   # Returns a hash containing information about the query URL.
   #
@@ -557,6 +883,8 @@ class Technorati
   # * 'weblog/inboundlinks': Number of inbound links of blog.
   # * 'weblog/lastupdate': Date blog was last updated.
   # * 'weblog/rank': Blog cosmos rank.
+  # * 'weblog/lang': Language of this blog.
+  # * 'weblog/foafurl': FOAF (Friend of a Friend) URL for this blog.
   # * 'inboundblogs': Inbound blogs.
   # * 'inboundlinks': Inbound links. 
   #
@@ -568,10 +896,50 @@ class Technorati
   #   blog_keys = { 'Name' => 'name', 'URL' =>'url', 'RSS' => 'rssurl' }
   #   puts blog_keys.map { |ary| "#{ary[0]}: #{result["weblog/#{ary[1]}"]}" }
   #   
-  def bloginfo(url, start = nil)
-    args = ["key=#@key", "url=#{u(url)}"]
-    ret = get('bloginfo', '/bloginfo?' << args.compact.join('&'))
+  def blog_info(url)
+    args = { 'url' => url }
+
+    ret = get('bloginfo', args)
     ret.delete('items')
     ret
+  end
+
+  alias :bloginfo :blog_info
+
+  #
+  # Return top tags for posts on the given blog.  See
+  # http://technorati.com/developers/api/blogposttags.html for additional
+  # information.
+  # 
+  # Parameters:
+  # * _url_ (required): URL to search for ('http://' and 'www' prefix
+  #   are optional).
+  #
+  # Any additional arguments are optional and may be passed as a hash.
+  # Here's a description of each optional argument:
+  #
+  # Optional Arguments:
+  # * _limit_: Set this to a number larger than 0 and smaller or equal to
+  #   100 and it will return _limit_ number of tags for the given blog. By
+  #   default this value is 10.
+  #
+  # Returns a hash containing information about the query URL.
+  #
+  # Valid Return Keys:
+  # * 'tag': Tag value.
+  # * 'posts': Number of posts matching given tag.
+  #
+  # Raises Technorati::Error on error.
+  #
+  # Example:
+  #   # print the top 10 tags for the site 'linuxbrit.co.uk':
+  #   site = 'linuxbrit.co.uk'
+  #   puts tr.blog_post_tags(site)['items'].map { |item|
+  #     "#{item['tag']} (#{item['posts']})"
+  #   }
+  #
+  def blog_post_tags(url, args = {})
+    args = { 'url' => url }
+    get('blogposttags', args)
   end
 end

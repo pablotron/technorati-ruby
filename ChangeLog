@@ -46,3 +46,12 @@
     environment variables: TECHNORATI_HTTP_PROXY, HTTP_PROXY, http_proxy
   * technorati.rb: added tweakable API url (via opt['api_url']).
     defaults to api.technorati.com
+
+* Tue Dec 12 02:22:07 EST 2006, Paul Duncan <pabs@pablotron.org>
+  * technorati.gemspec: updated homepage
+  * technorati.rb: updated documentation
+  * technorati.rb: removed Technorati#outbound
+  * technorati.rb: added Technorati#tag
+  * technorati.rb: added Technorati#key_info
+  * technorati.rb: added Technorati#top_tags
+  * technorati.rb: added Technorati#blog_post_tags

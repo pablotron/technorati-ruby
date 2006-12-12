@@ -38,6 +38,6 @@ spec = Gem::Specification.new do |s|
 
   s.author = 'Paul Duncan'
   s.email = 'pabs@pablotron.org'
-  s.homepage = 'http://www.pablotron.org/software/technorati-ruby/'
+  s.homepage = 'http://pablotron.org/software/technorati-ruby/'
   s.rubyforge_project = 'technorati-ruby'
 end
