@@ -69,4 +69,12 @@
 * Thu Dec 14 03:27:34 2006, pabs <pabs@pablotron.org>
   * official move to mercurial
   * moved techonrati.rb to lib/
-  * Rakefile: added pkg_dir support
+  * Rakefile: added support for RAKE_PACKAGE_DIR env var.
+
+* Thu Dec 14 03:40:08 2006, pabs <pabs@pablotron.org>
+
+  Gemspec updates; point at new repo, increment version, etc.
+
+  * Rakefile: point at hg repo
+  * technorati.gemspec: update "cvs" repo, version, require path
+  * (am I even going to keep the .gemspec file any more?)
