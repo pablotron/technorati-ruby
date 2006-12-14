@@ -59,3 +59,9 @@
 * Thu Dec 14 01:14:04 2006, pabs <pabs@pablotron.org>
   * added Rakefile
   * technorati.gemspec: added Gem::Package::RUBY
+
+* Thu Dec 14 03:08:37 EST 2006, Paul Duncan <pabs@pablotron.org>
+  * technorati.rb: make user agent configurable via Technorati.new
+    optional argument hash
+  * technorati.rb: fix #key_info
+  * technorati.rb: fix #search

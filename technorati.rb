@@ -241,7 +241,8 @@ class Technorati
 
   # Default options for Technorati.new.
   DEFAULTS = {
-    'api_url' => 'http://api.technorati.com/',
+    'api_url'     => 'http://api.technorati.com/',
+    'user_agent'  => "Technorati-Ruby/#{Technorati::VERSION} Ruby/#{RUBY_VERSION}",
   }
 
   #
@@ -261,10 +262,6 @@ class Technorati
   def initialize(key, opt = nil)
     @opt = DEFAULTS.merge(opt || {})
     @key = key
-
-    @headers = {
-      'User-Agent'  => "Technorati-Ruby/#{Technorati::VERSION} Ruby/#{RUBY_VERSION}"
-    }
   end
 
   private
@@ -381,8 +378,13 @@ class Technorati
 
     # $stderr.puts "DEBUG URL: #{url}"
 
+    # create HTTP headers hash
+    http_headers = {
+      'User-Agent'  => @opt['user_agent']
+    }
+
     # get URL, check for error
-    resp = http.get(url, @headers)
+    resp = http.get(url, http_headers)
     raise Technorati::HTTPError, "HTTP #{resp.code}: #{resp.message}" unless resp.code =~ /2\d{2}/
 
     # close HTTP connection, return response
@@ -684,10 +686,10 @@ class Technorati
   #   }.flatten
   #
   def search(words, args = {})
-    words = [words] unless words.kind_of?(Array)
+    words = words.join(' ') if words.respond_to?(:join)
 
     # if this is an old-style call, then convert it.
-    legacy_classes = [String. Numeric]
+    legacy_classes = [String, Numeric]
     args = legacy_search(args) if args && legacy_classes.any? { |c| args.kind_of?(c) }
     args.update('query' => words)
 
@@ -801,7 +803,7 @@ class Technorati
   #   }
   # 
   def key_info
-    ret = get('keyinfo', args)
+    ret = get('keyinfo')
     ret.delete('items')
     ret
   end
