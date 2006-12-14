@@ -27,13 +27,15 @@ def package_info
 
   # requirements and files
   ret.reqs          = ['none']
-  ret.include_files = Dir['**/*'].delete_if { |path| path.include?('CVS') }
+  ret.include_files = Dir['**/*'].delete_if { |path| 
+    %w{CVS .svn .hg}.any? { |chunk| path.include?(chunk) }
+  }
       
   # rdoc info
   ret.rdoc_title    = "#{ret.name} #{ret.version} API Documentation"
   ret.rdoc_options  = %w{--webcvs http://cvs.pablotron.org/?m=technorati-ruby}
   ret.rdoc_dir      = 'doc'
-  ret.rdoc_files    = %w{lib/technorati.rb README ChangeLog COPYING examples/*}
+  ret.rdoc_files    = %w{lib/**/*.rb README ChangeLog COPYING examples/**/*}
 
   # runtime info
   ret.auto_require  = 'technorati'
@@ -46,6 +48,11 @@ def package_info
     ret.signing_chain = ENV['GEM_SIGNING_CHAIN'].split(',').map { |path|
       File.expand_path(path)
     }
+  end
+
+  # package release dir
+  if path = ENV['RAKE_PACKAGE_DIR']
+    ret.pkg_dir = File.join(File.expand_path(path), ret.package_name)
   end
 
   # return package
@@ -88,6 +95,7 @@ end
 Rake::GemPackageTask.new(gem_spec) do |p|
   p.need_tar_gz = true
   p.need_pgp_signature = true
+  p.package_dir = pkg.pkg_dir if pkg.pkg_dir
 end
 
 

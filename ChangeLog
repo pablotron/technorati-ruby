@@ -65,3 +65,8 @@
     optional argument hash
   * technorati.rb: fix #key_info
   * technorati.rb: fix #search
+
+* Thu Dec 14 03:27:34 2006, pabs <pabs@pablotron.org>
+  * official move to mercurial
+  * moved techonrati.rb to lib/
+  * Rakefile: added pkg_dir support
