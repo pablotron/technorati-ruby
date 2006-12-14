@@ -100,3 +100,7 @@
   * examples/referrer.rb: use jit convenience methods
   * examples/referrer.rb: add comments for methods
   * examples/referrer.rb: minor template fixes
+
+* Thu Dec 14 06:40:30 2006, pabs <pabs@pablotron.org>
+  * added release_notes-0.2.0.txt
+  * releasing 0.2.0

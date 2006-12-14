@@ -1,0 +1,175 @@
+Technorati-Ruby 0.2.0 Release Notes
+===================================
+
+Table of Contents
+=================
+  1. Overview
+  2. API Changes
+    2.1 New Optional Argument Passing Syntax
+    2.2 Just In Time Convenience Methods
+  3. Signed RubyGems Package
+  4. URLs
+
+
+Overview
+========
+Technorati-Ruby 0.2.0 includes several changes which may affect your
+existing code.  This document explains each of the changes, the reason
+behind them, and how legacy code can be changed to support the new API.
+
+An additional section below explains the signed Technorati-Ruby gem and
+how you can verify the Technorati-Ruby gem using the RubyGems certificate
+interface.
+
+
+2. API Changes
+==============
+There are several major changes to the Technorati-Ruby 0.2.0 API which
+may be incompatible with code written for the Technorati-Ruby 0.1.x API.
+The changes are:
+
+    * Removed the Technorati#outbound method (no longer provided 
+      by the Technorati API).
+    * Errors are now wrapped by Technorati::Error exceptions.
+    * Removed the Technorati-Ruby monkey patches to String.
+    * Added HTTP proxy support (Technorati-Ruby now honors the
+      TECHNORATI_HTTP_PROXY, HTTP_PROXY and http_proxy environment
+      variables)
+    * Fixed 'excerpt' (sic) typo in returned hashes.
+    * Added tag, key_info, top_tags, and blog_post_tags methods.
+    * Renamed bloginfo to blog_info
+
+Each change is covered in detail in the following sections.
+
+2.1 New Optional Argument Passing Syntax
+----------------------------------------
+All optional arguments to methods are passed as a hash instead of as
+method parameters.  The old, 0.1-style calling semantics will still
+work, but are deprecated and will print a warning when you use them.
+Support for the 0.1-style method behavior will be removed in a future
+release.  For example, in Technorati-Ruby 0.1.x, a call to
+Technorati#cosmos with optional parameters looked like so:
+
+    # OLD STYLE, DON'T USE!
+    tr.cosmos('pablotron.org', 10, 10)
+
+The new way to pass optional parameters is with a hash, like so:
+
+    cosmos_opts = { 'start' => 10, 'limit' => 10 }
+    tr.cosmos('pablotron.org, cosmos_opts)
+
+The optional arguments available are documented in each method that
+supports them.
+
+2.2 Just in Time Convenience Methods
+------------------------------------
+All hashes returned from Technorati API calls have Just in Time (JIT)
+convenience methods for their keys.  The old, 0.1.x way:
+
+  puts "excerpt: " + results['items'][0]['excerpt']
+
+The snippet above can now be written in a more Ruby-esque style, like
+this:
+
+  puts "excerpt: " + results.items.first.excerpt
+
+Both styles are interchangeable and will be supported in future
+releases.
+
+3. Signed RubyGems Package
+==========================
+The gem file for Technorati-Ruby 0.2.0 is cryptographically signed
+using the (relatively) new RubyGems signing interface.  Full
+documentation for both deploying and using the RubyGems certificate
+interface is available online in the RubyGems manual, but here's a brief
+overview of the steps necessary to validate and verify a signed gem.
+
+By the way, if you skipped ahead and gawked at the instructions below,
+remember that none of this is _required_ to use a signed gem; they can
+be installed and run exactly like any other gem file.  That said,
+verifying the authenticity of package files is a good way to save
+yourself the headache of a future security fiasco.  So, without any
+further ado...
+
+First, you'll need to download and verify the certificates used to sign
+the gem file itself.  Here are the URLs of the certificates and their
+signatures:
+
+  http://pablotron.org/files/certs/ca.crt
+  http://pablotron.org/files/certs/ca.crt.asc
+  http://pablotron.org/files/certs/rubygems.crt
+  http://pablotron.org/files/certs/rubygems.crt.asc
+
+On a Unix system you can fetch all of them with a single line, like
+this:
+
+  wget http://pablotron.org/files/certs/{ca,rubygems}.crt{,.asc}
+
+The .crt files are PEM-encoded X.509 certificate files, and the .asc
+files are OpenPGP signatures of their certificate counterparts.
+
+If you have GnuPG installed, you can verify the signatures on each of
+these files like so:
+
+  # grab my PGP key from your local PGP keyserver (you can replace
+  # pgp.mit.edu with your local OpenPGP keyserver if you'd like)
+  gpg --recv-keys 82C29562 pgp.mit.edu
+
+  # alternatively, you can grab it online like so:
+  # wget -O- http://pablotron.org/files/pabskey.asc | gpg --import
+
+  # verify that both RubyGems signing certificates were signed by me
+  gpg -v ca.crt.asc && gpg -v rubygems.crt.asc && echo "Looks good..."
+
+If everything checks out okay and you either, a) believe that my
+PGP signature is legitimate, or b) can establish a trusted relationship
+via GnuPG, then it's reasonably safe to assume that the certificates
+were signed by my certificate and have not been tampered with.  And I'm
+a trustworthy guy, so let's add my certificates to RubyGems's list of
+trusted certificates:
+
+  # add both certificates to your list of trusted gem certs
+  for cert in {ca,rubygems}.crt; do sudo gem cert -a $cert; done
+
+(If you change your mind and decide either me or my certs aren't
+trustworthy, you can use "gem cert -r" to remove the certificates from
+your trust list).
+
+At this point we're ready to install the gem.  It's business as usual,
+except for an additional flag to set our RubyGems security policy.
+The HighSecurity policy tells RubyGems to only install signed gem files
+that are from trusted sources.  Here's how we enable it:
+
+  # URL to gem file.  once it's in the RubyGems repositories, you can
+  # change this from a URL to just the package name 'technorati-ruby'.
+  gem_file="technorati-ruby-0.2.0.gem"
+  gem_url="http://gems.pablotron.org/gems/$gem_file"
+
+  # install gem from remote url using the high security policy
+  wget "$gem_url"
+  sudo gem install "$gem_file" -P HighSecurity
+
+And we're done!  If the gem file isn't signed, there was a problem with
+the validity of the certificates or the gem file, RubyGems will refuse to
+install the gem file.  
+
+The best part, by the way, is that you don't have to perform any of
+these steps to verify gems signed by me in the future.  A simple call
+like this:
+
+    sudo gem install gem_file.gem -P HighSecurity
+
+is enough to trace verify the authenticity of the gem file.
+
+4. URLs
+=======
+* Tarball (tar.gz):
+  * Download:   http://pablotron.org/files/technorati-ruby-0.2.0.tar.gz
+  * Signature:  http://pablotron.org/files/technorati-ruby-0.2.0.tar.gz.asc
+* RubyGems Package (gem):
+  * Download:   http://gems.pablotron.org/gems/technorati-ruby-0.2.0.gem
+  * Signature:  http://gems.pablotron.org/gems/technorati-ruby-0.2.0.gem.asc
+* Documentation:
+  * ChangeLog:  http://pablotron.org/software/technorati-ruby/ChangeLog-0.2.0
+  * API Docs:   http://pablotron.org/software/technorati-ruby/doc/
+  * Release Notes: http://pablotron.org/software/technorati-ruby/release_notes-0.2.0.txt
