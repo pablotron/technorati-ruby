@@ -55,3 +55,7 @@
   * technorati.rb: added Technorati#key_info
   * technorati.rb: added Technorati#top_tags
   * technorati.rb: added Technorati#blog_post_tags
+
+* Thu Dec 14 01:14:04 2006, pabs <pabs@pablotron.org>
+  * added Rakefile
+  * technorati.gemspec: added Gem::Package::RUBY

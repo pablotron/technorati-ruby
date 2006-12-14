@@ -1,6 +1,7 @@
 require 'rubygems'
 
 spec = Gem::Specification.new do |s|
+  s.platform = Gem::Platform::RUBY
 
   #### Basic information.
 
