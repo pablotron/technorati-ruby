@@ -6,7 +6,7 @@ spec = Gem::Specification.new do |s|
   #### Basic information.
 
   s.name = 'Technorati-Ruby'
-  s.version = '0.1.1'
+  s.version = '0.2.0'
   s.summary = <<-EOF
     Technorati(http://technorati.com/) bindings for Ruby.
   EOF
@@ -20,19 +20,21 @@ spec = Gem::Specification.new do |s|
 
   #### Which files are to be included in this gem?  Everything!  (Except CVS directories.)
 
-  s.files = Dir.glob("**/*").delete_if { |item| item.include?("CVS") }
+  s.files = Dir.glob("**/*").delete_if { |path|
+    %w{CVS .svn .hg}.any? { |chunk| path.include?(chunk) }
+  }
 
   #### C code extensions.
 
-  s.require_path = '.' # is this correct?
+  s.require_path = 'lib' # is this correct?
   # s.extensions << "extconf.rb"
 
   #### Load-time details: library and application (you will need one or both).
   s.autorequire = 'technorati'
   s.has_rdoc = true
   s.rdoc_options = ['--webcvs',
-  'http://cvs.pablotron.org/cgi-bin/viewcvs.cgi/technorati/', '--title',
-  'Technorati-Ruby API Documentation', 'technorati.rb', 'README', 'ChangeLog',
+  'http://hg.pablotron.org/technorati-ruby', '--title',
+  'Technorati-Ruby API Documentation', 'lib/technorati.rb', 'README', 'ChangeLog',
   'COPYING', 'examples/referrer_rss.rb']
 
   #### Author and project details.
@@ -40,5 +42,5 @@ spec = Gem::Specification.new do |s|
   s.author = 'Paul Duncan'
   s.email = 'pabs@pablotron.org'
   s.homepage = 'http://pablotron.org/software/technorati-ruby/'
-  s.rubyforge_project = 'technorati-ruby'
+
 end

@@ -33,7 +33,7 @@ def package_info
       
   # rdoc info
   ret.rdoc_title    = "#{ret.name} #{ret.version} API Documentation"
-  ret.rdoc_options  = %w{--webcvs http://cvs.pablotron.org/?m=technorati-ruby}
+  ret.rdoc_options  = %w{--webcvs http://hg.pablotron.org/technorati-ruby}
   ret.rdoc_dir      = 'doc'
   ret.rdoc_files    = %w{lib/**/*.rb README ChangeLog COPYING examples/**/*}
 
