@@ -78,3 +78,17 @@
   * Rakefile: point at hg repo
   * technorati.gemspec: update "cvs" repo, version, require path
   * (am I even going to keep the .gemspec file any more?)
+
+* Thu Dec 14 05:41:18 2006, pabs <pabs@pablotron.org>
+  * COPYING: update copyright date
+  * Rakefile: glob rdoc files before passing them to command
+  * examples/referrer_rss.rb: class up example (literally)
+  * examples/referrer_rss.rb: use erb and propery escaping
+  * lib/technorati.rb: add note about JIT instance methods on 
+    all returned hashes
+  * lib/technorati.rb: added Technorati#magify_hash (private
+    method.  returned hashes are passed through it to spiff
+    up the interface)
+  * lib/technorati.rb: update documentation for several methods to
+    reflect this change
+

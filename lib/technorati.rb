@@ -80,6 +80,16 @@ require 'cgi'
 # See the documentation for each method for additional information on
 # the available options.
 #   
+# By the way, all of the hashes returned by class have {just in time
+# convenience methods}[http://project.ioni.st/post/966#post-966] for
+# their keys.  What does this mean?  Instead of writing this:
+# 
+#   results['items'][0]['excerpt']
+#
+# You can write it in a more Ruby-esque way, like so:
+#
+#   results.items.first.excerpt
+# 
 class Technorati
   # Release version.
   VERSION = '0.2.0'
@@ -239,6 +249,22 @@ class Technorati
 
   # :startdoc:
 
+  #
+  # Load Technorati key.
+  #
+  # Attempts to load Technorati key from given path.  If a path isn't
+  # given, this method checks ENV['TECHNORATI_KEY'], and if that isn't
+  # specified, defaults to '~/.technorati_key'.
+  #
+  # Example:
+  #   key = Technorati.load_key
+  #
+  def self.load_key(path = nil)
+    key_path = path || ENV['TECHNORATI_KEY'] || '~/.technorati_key'
+    key_path = File.expand_path(key_path)
+    File.read(key_path).strip
+  end
+
   # Default options for Technorati.new.
   DEFAULTS = {
     'api_url'     => 'http://api.technorati.com/',
@@ -253,8 +279,7 @@ class Technorati
   #
   # Example: 
   #   # read key from $HOME/.technorati_key
-  #   api_key_path = File.expand_path('~/.technorati_key')
-  #   api_key = File.read(key_path).strip
+  #   api_key = Technorati.load_key
   #
   #   # use key to connect to technorati
   #   t = Technorati.new(api_key)
@@ -393,6 +418,22 @@ class Technorati
   end
 
   #
+  # Add JIT convenience methods to hash.
+  #
+  # This method is private.
+  #
+  # Used to "spice up" returned hashes with more Ruby-esque methods.
+  # 
+  def magify_hash(hash)
+    hash.keys.each do |key|
+      meth_key = key.gsub(/\//, '_')
+      hash.instance_eval %{def #{meth_key}; self['#{key}']; end}
+    end
+
+    hash
+  end
+
+  #
   # Get URL from Technorati, and optionally parse result and return as
   # an array of hashes as well.
   #
@@ -428,7 +469,7 @@ class Technorati
     ret['items'] = []
     doc.root.elements.each('//document/item') do |e|
       # elements to grab from return XML
-      ret['items'] << schema_keys.inject({}) do |elem_vals, key| 
+      item_hash = schema_keys.inject({}) do |elem_vals, key| 
         if val = e.elements[key]
           # out_key = key.gsub(/\//, '_')
           out_val = TYPE_PROCS[QUERY_SCHEMAS[schema][key]].call(val.text)
@@ -436,10 +477,12 @@ class Technorati
         end
         elem_vals
       end
+
+      ret['items'] << magify_hash(item_hash)
     end
 
     # return results
-    ret
+    magify_hash(ret)
   end
 
   #
@@ -455,6 +498,8 @@ class Technorati
         val = '1' 
       elsif key == 'current'
         val = val ? 'yes' : 'no'
+      else
+        val = val ? val.to_s : ''
       end
         
       "#{key}=#{u(val)}"
@@ -481,7 +526,7 @@ class Technorati
     keys.zip(args).inject({}) do |ret, row|
       key, key_type, val = row.flatten
 
-      if val.defined?
+      if val
         case key_type
         when :int
           ret[key] = val.to_i
@@ -574,7 +619,7 @@ class Technorati
   #
   #   # basic cosmos query
   #   site = 'slashdot.org'
-  #   puts tr.cosmos(site)['items'].map { |item| item['weblog/name'] }
+  #   puts tr.cosmos(site).items.map { |item| item.weblog_name }
   #  
   # And here's the same query with some options:
   #  
@@ -586,10 +631,11 @@ class Technorati
   #   cosmos = tr.cosmos(site, cosmos_opts)
   #
   #   # print out a list of the first 35 sites linking to slashdot.org
-  #   puts cosmos['items'].map { |item| item['weblog/name'] }
+  #   puts cosmos.items.map { |item| item.weblog_name }
   #
   def cosmos(url, *args)
-    args = (args.size > 0 && args[0].kind_of?(Hash)) ? legacy_cosmos(args) : {}
+    args << {} unless args.size > 0
+    args = args[0].kind_of?(Hash) ? args.shift : legacy_cosmos(args)
     args.update('url' => url)
 
     # execute query and return results
@@ -744,8 +790,8 @@ class Technorati
   #
   # Examples:
   #   # search for posts matching 'banana' and print them out
-  #   puts r.tag('banana')['items'].map { |post|
-  #     "\"#{post['title']\" (#{post['permalink']}):\n=> #{post['excerpt']}"
+  #   puts r.tag('banana').items.map { |post|
+  #     "\"#{post.title}\" (#{post.permalink}):\n=> #{post.excerpt}"
   #   }
   #
   def tag(tag, args = {})
@@ -778,8 +824,8 @@ class Technorati
   #
   # Example:
   #   # print out the top 20 tags on technorati
-  #   puts tr.top_tags['items'].map { |tag| 
-  #     "#{tag['tag']} (#{tag['posts']})"
+  #   puts tr.top_tags.items.map { |tag| 
+  #     "#{tag.tag} (#{tag.posts})"
   #   }
   # 
   def top_tags(args = {})
@@ -797,10 +843,9 @@ class Technorati
   # * 'maxqueries': Maximum number of allowed queries.
   #
   # Example:
-  #   # print out the top 20 tags on technorati
-  #   puts tr.top_tags['items'].map { |tag| 
-  #     "#{tag['tag']} (#{tag['posts']})"
-  #   }
+  #   info = tr.key_info
+  #   num_left = info.maxqueries - info.apiqueries
+  #   puts "remaining queries: #{num_left}"
   # 
   def key_info
     ret = get('keyinfo')

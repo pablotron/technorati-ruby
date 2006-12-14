@@ -35,7 +35,7 @@ def package_info
   ret.rdoc_title    = "#{ret.name} #{ret.version} API Documentation"
   ret.rdoc_options  = %w{--webcvs http://hg.pablotron.org/technorati-ruby}
   ret.rdoc_dir      = 'doc'
-  ret.rdoc_files    = %w{lib/**/*.rb README ChangeLog COPYING examples/**/*}
+  ret.rdoc_files    = %w{lib/*.rb README ChangeLog COPYING examples/**/*}
 
   # runtime info
   ret.auto_require  = 'technorati'
@@ -53,6 +53,10 @@ def package_info
   # package release dir
   if path = ENV['RAKE_PACKAGE_DIR']
     ret.pkg_dir = File.join(File.expand_path(path), ret.package_name)
+  end
+
+  if files = ret.rdoc_files
+    ret.rdoc_files = files.map { |e| Dir.glob(e) }.flatten.compact
   end
 
   # return package
@@ -102,7 +106,7 @@ end
 Rake::RDocTask.new do |rd|
   rd.title = pkg.rdoc_title
   rd.rdoc_dir = pkg.rdoc_dir
-  rd.rdoc_files.include(pkg.rdoc_files)
+  rd.rdoc_files.include(*pkg.rdoc_files)
   rd.options.concat(pkg.rdoc_options)
 end
 
